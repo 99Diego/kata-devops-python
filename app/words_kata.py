@@ -5,4 +5,3 @@ def nth_char(words: list[str]) -> str:
         result += word[index]
 
     return result
-
