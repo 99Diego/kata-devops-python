@@ -8,4 +8,3 @@ def test_nth_char():
 
 def test_nth_char_empty_list():
     assert nth_char([]) == ""
-

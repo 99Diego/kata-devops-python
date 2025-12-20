@@ -14,4 +14,3 @@ def test_get_total_ignores_missing_items():
     items = ["socks", "shoes"]
 
     assert get_total(costs, items, 0.0) == 5.0
-
