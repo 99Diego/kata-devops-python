@@ -7,8 +7,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ app/
 
-EXPOSE 80
-
-
-CMD ["python", "app/main.py"]
+ENTRYPOINT ["python", "app/main.py"]
 
