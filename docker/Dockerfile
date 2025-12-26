@@ -10,5 +10,5 @@ COPY app/ app/
 EXPOSE 80
 
 
-CMD ["python", "-m", "app/main.py"]
+CMD ["python", "app/main.py"]
 
