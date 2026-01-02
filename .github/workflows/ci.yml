@@ -124,20 +124,15 @@ jobs:
 
       # Install semantic-release and its plugins globally
       - name: Install semantic-release and plugins
-        run: |
-          npm install -g semantic-release \               # ---> node package manager (node tool) - g (global) - semantic-release reads commits history, calculates the version 
-            @semantic-release/commit-analyzer \           # ---> analyzer reads commit messages and  applies conventional commit rules, it decides patch/minor/major
-            @semantic-release/release-notes-generator \   # ---> generator groups commits and generates release description 
-            @semantic-release/changelog \                 # ---> changelog adds the new version 
-            @semantic-release/github                      # ---> creates GitHub Release, creates the tag, upload release notes (allows the release to be visible in GitHub)
+        run: npm install -g semantic-release \            # ---> node package manager (node tool) - g (global) - semantic-release reads commits history, calculates the version 
 
       # Run semantic-release
       # Calculate the version based on commits and create the tag and release
       - name: Run semantic-release
-        run: semantic-release
         env:
           # GitHub automatic token to authenticate the action 
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}       # ---> allows the bot to execute the granted permissions
+        run: npx semantic-release
 
   # -------------------------
   # JOB 5: DOCKER (BUILD & PUSH DOCKER IMAGE)
