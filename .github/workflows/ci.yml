@@ -123,8 +123,8 @@ jobs:
           node-version: "20"
 
       # Install semantic-release and its plugins globally
-      - name: Install semantic-release and plugins
-        run: npm install -g semantic-release \            # ---> node package manager (node tool) - g (global) - semantic-release reads commits history, calculates the version 
+      - name: Install Node dependencies
+        run: npm ci 
 
       # Run semantic-release
       # Calculate the version based on commits and create the tag and release
