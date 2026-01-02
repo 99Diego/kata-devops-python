@@ -1,121 +1,171 @@
+# Workflow name (for informational purpose only, visible in GitHub Actions) 
 name: CI/CD Pipeline - Python DevOps Kata
 
+# Events that trigger the pipeline  
 on:
+  # Runs where there is a push to the main branch 
   push:
     branches: ["main"]
+
+  # Runs when a pull request is opened or updated
   pull_request:
 
+# Job definition (each job runs on a separate VM)
 jobs:
   # -------------------------
-  # LINT
+  # JOB 1: LINT
   # -------------------------
   lint:
+    # Lynux runner managed by GitHub
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+    # Steps that are executed in order
+    steps:
+      # Clone the repository on the VM
+      - uses: actions/checkout@v4
+      
+      # Install and configure Pthon 3.12
+      - uses: actions/setup-python@v5     # ---> Plugin of GitHub Action
         with:
           python-version: "3.12"
 
+      # Install linting tool
       - name: Install flake8
-        run: pip install flake8
+        run: pip install flake8           # ---> Shell command (create an action for this will be overskill) 
 
+      # Run flake8 on the code and tests
+      # if there are style oy syntaxis errors, job fails
       - name: Run flake8
-        run: flake8 app tests
+        run: flake8 app tests             # ---> Verify code quality, variables not used, style, syntax (static)
 
   # -------------------------
-  # TESTS
+  # JOB 2: TESTS (FUNCTIONAL VALIDATION)
   # -------------------------
   test:
     runs-on: ubuntu-latest
+
+    # This job only runs if lint was successful
     needs: lint
+
     steps:
+      # Clones the code again (new VM)
       - uses: actions/checkout@v4
 
+      # Configure Python 3.12 for this job
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
+      # Install project dependencies and pytest 
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
           pip install pytest
 
+      # Runs unit tests
+      # If some unit test fails, the pipeline stops
       - name: Run tests
-        run: pytest
+        run: pytest                         # ---> Verify logic errors, bugs (dynamic)
 
   # -------------------------
-  # SECURITY SCAN (DEPENDENCIES)
+  # JOB 3: SECURITY (PYTHON DEPENDENCIES)
   # -------------------------
   security-code:
     runs-on: ubuntu-latest
+
+    # Only run if the tests passed
     needs: test
+
     steps:
+      # Clone the repository
       - uses: actions/checkout@v4
 
+      # Configure Python 3.12
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
+      # Install pip-audit to scan vulnerabilities
       - name: Install pip-audit
         run: pip install pip-audit
 
+      # Scan project dependencies
+      # Fail if known CVEs are found        # ---> Common Vulnerabilities and Exposures
       - name: Run dependency scan
-        run: pip-audit
+        run: pip-audit                      # ---> pip-audit checks packages installed and reports security issues
 
   # -------------------------
-  # SEMANTIC VERSIONING
+  # Job 4: RELEASE (SEMANTIC VERSIONING)
   # -------------------------
   release:
     runs-on: ubuntu-latest
+
+    # Run only if there aren't critical vulnerabilities
     needs: security-code
+
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    # Necessary permissions to create tags, releases and notes  
     permissions:
-      contents: write
-      issues: write
-      pull-requests: write
+      contents: write                        # ---> tags & releases
+      issues: write                          # ---> comment / close issues
+      pull-requests: write                   # ---> comment PR
+
     steps:
+      # Clone the repository with the entire history (required to semantic-release)
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0                     
 
+      # Install Node.js (semantic-release is a Node tool)
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
 
+      # Install semantic-release and its plugins globally
       - name: Install semantic-release and plugins
         run: |
-          npm install -g semantic-release \
-            @semantic-release/commit-analyzer \
-            @semantic-release/release-notes-generator \
-            @semantic-release/changelog \
-            @semantic-release/github
+          npm install -g semantic-release \               # ---> node package manager (node tool) - g (global) - semantic-release reads commits history, calculates the version 
+            @semantic-release/commit-analyzer \           # ---> analyzer reads commit messages and  applies conventional commit rules, it decides patch/minor/major
+            @semantic-release/release-notes-generator \   # ---> generator groups commits and generates release description 
+            @semantic-release/changelog \                 # ---> changelog adds the new version 
+            @semantic-release/github                      # ---> creates GitHub Release, creates the tag, upload release notes (allows the release to be visible in GitHub)
 
+      # Run semantic-release
+      # Calculate the version based on commits and create the tag and release
       - name: Run semantic-release
         run: semantic-release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
+          # GitHub automatic token to authenticate the action 
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}       # ---> allows the bot to execute the granted permissions
 
   # -------------------------
-  # BUILD & PUSH DOCKER IMAGE
+  # JOB 5: DOCKER (BUILD & PUSH DOCKER IMAGE)
   # -------------------------
   docker:
     runs-on: ubuntu-latest
+
+    # Run only if release was succesful
     needs: release
+
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
     steps:
+      # Clone the code
       - uses: actions/checkout@v4
 
+      # Extract the version from tag (i.e. v1.2.0 --> v1.2.0)
       - name: Extract version from tag
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
 
+      # Secure login to Docker Hub using secrets
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # Build and upload the Docker image 
       - name: Build & push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -127,22 +177,29 @@ jobs:
             99diego/kata-devops-python:latest
 
   # -------------------------
-  # SECURITY SCAN (IMAGE)
+  # JOB 6: SECURITY (DOCKER IMAGE)
   # -------------------------
   security-image:
     runs-on: ubuntu-latest
+
+    # Run only if the image was created correctly
     needs: docker
+
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
     steps:
+      # Scan the Docker image for vulnerabilities
       - name: Scan image with Trivy
         uses: aquasecurity/trivy-action@0.24.0
         with:
-          image-ref: 99diego/kata-devops-python:${{ env.VERSION }}
+          image-ref: docker.io/99diego/kata-devops-python:${{ env.VERSION }}
+
+          # Pipeline fails if there are vulnerabilities HIGH or CRITICAL
           exit-code: 1
           severity: CRITICAL,HIGH
 
   # -------------------------
-  # DEPLOY (DESACTIVADO)
+  # JOB 7: DEPLOY (DESACTIVADO)
   # -------------------------
   # deploy:
   #   runs-on: ubuntu-latest
