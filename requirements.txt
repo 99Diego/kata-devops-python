@@ -3,4 +3,6 @@ packaging==25.0
 pluggy==1.6.0
 Pygments==2.19.2
 pytest==9.0.2
-flake8
+flake8==7.0.0
+fastapi
+uvicorn
