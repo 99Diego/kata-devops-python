@@ -23,3 +23,12 @@ def shopping(items: list[str]):
 @app.post("/words")
 def words(words: list[str]):
     return {"result": nth_char(words)}
+
+
+@app.get("/")
+def root():
+    return {
+        "service": "kata-devops-python",
+        "status": "running",
+        "docs": "/docs"
+    }
